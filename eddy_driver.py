@@ -37,6 +37,10 @@ def createindex(outp, nvols, row):
     return "fprintf '{0}' > {1}".format(indx, outp)
 
 
+def stripext(path):
+    return op.join(op.dirname(path), op.basename(path).split('.')[0])
+
+
 def driver(args=None):
     desc = """
            Wrapper around FSL's Eddy script, including topup and other necessary
@@ -48,40 +52,117 @@ def driver(args=None):
     parser = ArgumentParser("eddy_driver",description=desc)
     parser.add_argument("basedir", help="Directory of your HCP dataset.")
     parser.add_argument("subjid", help="ID of your subject.")
+    parser.add_argument("--shell", help="which shell to process",
+                        choices=[95, 96, 97], default=95)
+    parser.add_argument("--dir", help="which shell to process",
+                        choices=["LR", "RL"], default="LR")
+    parser.add_argument("--exe", help="which version of eddy to run",
+                        choices=["eddy", "eddy_cuda8.0", "eddy_openmp"],
+                        default="eddy")
 
     results = parser.parse_args() if args is None else parser.parse_args(args)
 
+    # Grab inputs
     bdir = results.basedir
     sid = results.subjid
+    shell = results.shell
+    direction = results.dir
+    exe = results.exe
 
-    # get data file
-    # create name for output file
-    # get location of first b0 (or set the default to 0 1)
-    runcmd(fsl.fslroi('dwidata', 'dwib0s', 0, 1))
+    #
+    # Setup some helpful paths
+    dir_curr = op.abspath(op.curdir)
+    dir_data = op.join(bdir, sid, 'unprocessed', '3T', 'Diffusion')
 
-    # get other b0 volumes in other directions
-    # if other b0 volume exists:
-    # create name for output file
-    runcmd(fsl.fslmerge('alldwib0s', 'dwib0s', 'otherdwib0s'))
+    #
+    # Extract B0 from volume of interest
+    file_dwi = op.join(dir_data,
+                       '{0}_3T_DWI_dir{1}_{2}.nii.gz'.format(sid, shell,
+                                                             direction))
+    file_dwi_bvec = stripext(file_dwi) + ".bvec"
+    file_dwi_bval = stripext(file_dwi) + ".bval"
+    file_dwi_b01 = op.join(dir_curr,
+                           stripext(op.basename(file_dwi)) + '_b0.nii.gz')
+    dwi_b01_loc = 0
+    runcmd(fsl.fslroi(stripext(file_dwi),
+                      stripext(file_dwi_b01),
+                      dwi_b01_loc, dwi_b01_loc + 1))
 
-    # get all grad directions for these files, or default to reasonable value
-    # create name for output file
-    runcmd(createacq('acqfile.txt', 2, '0 -1 0 0.5', '0 1 0 0.5'))
+    #
+    # Extract B0 from complement volume
+    _direction = "LR" if direction == "RL" else "RL"
+    file_oth_dwi = op.join(dir_data,
+                             '{0}_3T_DWI_dir{1}_{2}.nii.gz'.format(sid, shell,
+                                                                   _direction))
+    file_oth_b01 = op.join(dir_curr,
+                           stripext(op.basename(file_oth_dwi)) + '_b0.nii.gz')
+    runcmd(fsl.fslroi(stripext(file_oth_dwi),
+                      stripext(file_oth_b01),
+                      dwi_b01_loc, dwi_b01_loc + 1))
 
-    # create name for output files
-    runcmd(fsl.topup('alldwib0s', 'acqfile.txt', 'topupoutput', 'hifi'))
-    runcmd(fsl.fslmaths('hifi', '-Tmean', 'hifi'))
-    runcmd(fsl.bet('hifi', 'hifi_brain', '-m'))
+    #
+    # Combines B0 volumes
+    file_b0s_group = op.join(dir_curr,
+                             stripext(op.basename(file_dwi)) + '_b0_grp.nii.gz')
+    runcmd(fsl.fslmerge(stripext(file_b0s_group),
+                        stripext(file_dwi_b01),
+                        stripext(file_oth_b01)))
 
-    # get row corresponding to main dwi image stack
+    #
+    # Creates ACQ file for Topup and Eddy
+    acqparams = ["1 0 0 0.05", "-1 0 0 0.05"]
+    file_acq = op.join(dir_curr, "acqparams.txt")
+    runcmd(createacq(file_acq,
+                     2,
+                     *acqparams))
+
+    #
+    # Runs Topup on the B0 volumes
+    file_topup = op.join(dir_curr, "topup.nii.gz")
+    file_hifi = op.join(dir_curr, "hifi.nii.gz")
+    runcmd(fsl.topup(stripext(file_b0s_group),
+                     file_acq,
+                     stripext(file_topup),
+                     stripext(file_hifi)))
+
+
+    #
+    # Takes mean from hifi volumes
+    runcmd(fsl.fslmaths(stripext(file_hifi),
+                        '-Tmean',
+                        stripext(file_hifi)))
+
+    #
+    # Skull strips mean hifi volume
+    file_hifi_brain = stripext(file_hifi) + "_brain.nii.gz"
+    runcmd(fsl.bet(stripext(file_hifi),
+                   stripext(file_hifi_brain),
+                   '-m'))
+
+    #
+    # Create index file for Eddy
+    with open(file_dwi_bval) as fhandle:
+        data_dwi_bval = []
+        for line in fhandle.readline():
+            data_dwi_bval += line
+    print(line)
     # get number of diffusion volumes
     runcmd(createindex('indexfile.txt', 4, 1))
 
-    # get bvals
-    # get bvecs
+    #
+    # Run Eddy
     # create output file name
-    runcmd(fsl.eddy("dwi", "brain", "acq.txt", "ind.txt",
-                    "bvec", "bval", "topup", "out", exe="eddy_cuda8.0"))
+    runcmd(fsl.eddy(stripext(file_dwi),
+                    stripext(file_hifi_brain),
+                    file_acq,
+                    file_index,
+                    file_bvec,
+                    file_bval,
+                    stripext(file_topup),
+                    stripext(file_out),
+                    exe=exe))
+
+    print("Eddy corrected file: {0}".format(file_eddy))
 
 
 if __name__ == "__main__":
