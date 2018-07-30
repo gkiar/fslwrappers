@@ -9,13 +9,15 @@ import fsl
 
 
 def runcmd(cmd):
-    print(cmd)
-#     try:
-#         p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
-#         outputs = p.communicate()
-#     except Exception as e:
-#         raise SystemExit("Command failed.\n CMD:{0}\n Error:{1}".format(cmd,
-#                                                                         e))
+    p = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+
+    out = out.decode('utf-8')
+    err = err.decode('utf-8')
+    if err is not '':
+        raise SystemExit("Command failed.\n CMD:{0}\n Error:{1}".format(cmd,
+                                                                        err))
+    return out, err
 
 def createacq(outp, n, *dirs):
     # Expects "dirs" in the following format:
@@ -141,25 +143,27 @@ def driver(args=None):
 
     #
     # Create index file for Eddy
-    with open(file_dwi_bval) as fhandle:
-        data_dwi_bval = []
-        for line in fhandle.readline():
-            data_dwi_bval += line
-    print(line)
-    # get number of diffusion volumes
-    runcmd(createindex('indexfile.txt', 4, 1))
+    with open(file_dwi_bval, 'r') as fhandle:
+        data_dwi_bval = fhandle.read()
+    n_bvals = data_dwi_bval.count(" ") + 1
+    file_index = op.join(dir_curr, "index.txt")
+    runcmd(createindex(file_index,
+                       n_bvals,
+                       1))
 
     #
     # Run Eddy
     # create output file name
+    file_eddy = op.join(dir_curr,
+                       stripext(op.basename(file_dwi)) + '_eddy.nii.gz')
     runcmd(fsl.eddy(stripext(file_dwi),
                     stripext(file_hifi_brain),
                     file_acq,
                     file_index,
-                    file_bvec,
-                    file_bval,
+                    file_dwi_bvec,
+                    file_dwi_bval,
                     stripext(file_topup),
-                    stripext(file_out),
+                    stripext(file_eddy),
                     exe=exe))
 
     print("Eddy corrected file: {0}".format(file_eddy))
