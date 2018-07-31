@@ -17,7 +17,7 @@ def runcmd(cmd, verb=False):
 
     out = out.decode('utf-8')
     err = err.decode('utf-8')
-    if err is not '':
+    if len(err) > 0:
         raise SystemExit("Command failed.\n CMD:{0}\n Error:{1}".format(cmd,
                                                                         err))
     return out, err
