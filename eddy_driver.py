@@ -64,7 +64,7 @@ def stripext(path):
     return op.join(op.dirname(path), op.basename(path).split('.')[0])
 
 
-def driver(args=None):
+def hcpdriver(args=None):
     desc = """
            Wrapper around FSL's Eddy script, including topup and other necessary
            preprocessing steps for HCP-organized datasets. The Python-API for
@@ -220,4 +220,4 @@ def driver(args=None):
 
 
 if __name__ == "__main__":
-    driver()
+    hcpdriver()
