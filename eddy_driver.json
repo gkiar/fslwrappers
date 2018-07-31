@@ -1,0 +1,93 @@
+{
+    "command-line": "python eddy_driver.py BASEPATH SUBJID OUTPUT SHELL DIR EXE VERBOSE",
+    "description": "tool description",
+    "inputs": [
+        {
+            "description": "Directory of your HCP dataset.",
+            "id": "basepath",
+            "name": "basepath",
+            "optional": false,
+            "type": "String",
+            "value-key": "BASEPATH"
+        },
+        {
+            "description": "ID of your subject.",
+            "id": "subjid",
+            "name": "subjid",
+            "optional": false,
+            "type": "String",
+            "value-key": "SUBJID"
+        },
+        {
+            "command-line-flag": "--output",
+            "description": "output directory location if not CWD",
+            "id": "output",
+            "name": "output",
+            "optional": true,
+            "type": "String",
+            "value-key": "OUTPUT"
+        },
+        {
+            "command-line-flag": "--shell",
+            "default-value": 95,
+            "description": "which shell to process",
+            "id": "shell",
+            "name": "shell",
+            "optional": true,
+            "type": "String",
+            "value-choices": [
+                95,
+                96,
+                97
+            ],
+            "value-key": "SHELL"
+        },
+        {
+            "command-line-flag": "--dir",
+            "default-value": "LR",
+            "description": "which shell to process",
+            "id": "dir",
+            "name": "dir",
+            "optional": true,
+            "type": "String",
+            "value-choices": [
+                "LR",
+                "RL"
+            ],
+            "value-key": "DIR"
+        },
+        {
+            "command-line-flag": "--exe",
+            "default-value": "eddy",
+            "description": "which version of eddy to run",
+            "id": "exe",
+            "name": "exe",
+            "optional": true,
+            "type": "String",
+            "value-choices": [
+                "eddy",
+                "eddy_cuda8.0",
+                "eddy_openmp"
+            ],
+            "value-key": "EXE"
+        },
+        {
+            "command-line-flag": "--verbose",
+            "description": "Toggles printing commands",
+            "id": "verbose",
+            "name": "verbose",
+            "optional": true,
+            "type": "Flag",
+            "value-key": "VERBOSE"
+        }
+    ],
+    "name": "tool name",
+    "schema-version": "0.5",
+    "suggested-resources": {
+        "cpu-cores": 1,
+        "ram": 1,
+        "walltime-estimate": 60
+    },
+    "tags": {},
+    "tool-version": "v0.1.0"
+}

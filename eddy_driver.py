@@ -64,7 +64,7 @@ def stripext(path):
     return op.join(op.dirname(path), op.basename(path).split('.')[0])
 
 
-def hcpdriver(args=None):
+def hcpparser():
     desc = """
            Wrapper around FSL's Eddy script, including topup and other necessary
            preprocessing steps for HCP-organized datasets. The Python-API for
@@ -73,7 +73,7 @@ def hcpdriver(args=None):
            following link on July 30, 2018:
            https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/eddy/UsersGuide"""
     parser = ArgumentParser("eddy_driver",description=desc)
-    parser.add_argument("basedir", help="Directory of your HCP dataset.")
+    parser.add_argument("basepath", help="Directory of your HCP dataset.")
     parser.add_argument("subjid", help="ID of your subject.")
     parser.add_argument("--output", help="output directory location if not CWD")
     parser.add_argument("--shell", help="which shell to process",
@@ -85,11 +85,15 @@ def hcpdriver(args=None):
                         default="eddy")
     parser.add_argument("--verbose", "-v", help="Toggles printing commands",
                         action="store_true")
+    return parser
 
+
+def driver(args=None):
+    parser = hcpparser()
     results = parser.parse_args() if args is None else parser.parse_args(args)
 
     # Grab inputs
-    bdir = results.basedir
+    bdir = results.basepath
     sid = results.subjid
     shell = results.shell
     direction = results.dir
