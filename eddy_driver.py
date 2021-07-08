@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 import nibabel as nib
 import os.path as op
 import os
-
+import time
 import fsl
 
 
@@ -17,7 +17,9 @@ def runcmd(cmd, verb=False):
 
     out = out.decode('utf-8')
     err = err.decode('utf-8')
-    if err is not '':
+    print "OUT = {0}".format(out)
+    print "ERR = {0}".format(err)
+    if len(err) > 0:
         raise SystemExit("Command failed.\n CMD:{0}\n Error:{1}".format(cmd,
                                                                         err))
     return out, err
@@ -36,6 +38,7 @@ def sanitizedwi(inp, outp):
         image_dwi_clean = nib.Nifti1Image(_data_image_clean,
                                           affine=image_dwi.affine,
                                           header=image_dwi.header)
+        print "what"
         image_dwi_clean.update_header()
         nib.save(image_dwi_clean, outp)
         return outp
@@ -88,7 +91,7 @@ def hcpparser():
     return parser
 
 
-def driver(args=None):
+def hcpdriver(args=None):
     parser = hcpparser()
     results = parser.parse_args() if args is None else parser.parse_args(args)
 
@@ -104,7 +107,6 @@ def driver(args=None):
     cmd = "mkdir -p " + results.output if results.output is not None else None
     if cmd:
         runcmd(cmd, verb=verb)
-
     #
     # Setup some helpful paths
     dir_curr = op.abspath(results.output)
@@ -114,13 +116,11 @@ def driver(args=None):
                                                              direction))
     file_dwi_bvec = stripext(file_dwi) + ".bvec"
     file_dwi_bval = stripext(file_dwi) + ".bval"
-
     #
     # Sanitizes image volume if odd number in one direction
     file_dwi_clean = op.join(dir_curr,
                              stripext(op.basename(file_dwi)) + '_clean.nii.gz')
     file_dwi = sanitizedwi(file_dwi, file_dwi_clean)
-
     #
     # Extract B0 from volume of interest
     file_dwi_b01 = op.join(dir_curr,
@@ -209,6 +209,7 @@ def driver(args=None):
     # Run Eddy
     file_eddy = op.join(dir_curr,
                        stripext(op.basename(file_dwi)) + '_eddy.nii.gz')
+    time1 = time.time()
     runcmd(fsl.eddy(stripext(file_dwi),
                     stripext(file_hifi_brain),
                     file_acq,
@@ -219,9 +220,9 @@ def driver(args=None):
                     stripext(file_eddy),
                     exe=exe),
            verb=verb)
-
+    time2 = time.time()
     print("Eddy corrected file: {0}".format(file_eddy))
-
+    print("Time to Correct File : {0} seconds".format(time2-time1))
 
 if __name__ == "__main__":
     hcpdriver()
